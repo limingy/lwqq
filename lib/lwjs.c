@@ -103,6 +103,31 @@ char* lwqq_js_hash(const char* uin,const char* ptwebqq,lwqq_js_t* js)
 }
 
 LWQQ_EXPORT
+char* lwqq_js_encryption(const char* pwd, const char* salt, const char* vcode,
+		int isMd5, lwqq_js_t* js)
+{
+	JSObject* global = JS_GetGlobalObject(js->context);
+	jsval res;
+	jsval argv[4];
+	char* res_;
+
+	JSString* pwd_ = JS_NewStringCopyZ(js->context, pwd);
+	JSString* salt_ = JS_NewStringCopyZ(js->context, salt);
+	JSString* vcode_ = JS_NewStringCopyZ(js->context, vcode);
+	argv[0] = STRING_TO_JSVAL(pwd_);
+	argv[1] = STRING_TO_JSVAL(salt_);
+	argv[2] = STRING_TO_JSVAL(vcode_);
+	argv[3] = INT_TO_JSVAL(0);
+	JS_CallFunctionName(js->context, global, "encryption", 4, argv, &res);
+
+	res_ = JS_EncodeString(js->context,JSVAL_TO_STRING(res));
+	char* ret = strdup(res_);
+	JS_free(js->context,res_);
+
+	return ret;
+}
+
+LWQQ_EXPORT
 void lwqq_js_close(lwqq_js_t* js)
 {
 	JS_DestroyContext(js->context);

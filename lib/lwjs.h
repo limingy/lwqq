@@ -14,6 +14,8 @@ void lwqq_js_unload(lwqq_js_t* js,lwqq_jso_t* obj);
 #endif
 
 
+char* lwqq_js_encryption(const char* pwd, const char* salt, const char* vcode,
+		int isMd5, lwqq_js_t* js);
 char* lwqq_js_hash(const char* uin,const char* ptwebqq,lwqq_js_t* js);
 #endif
 

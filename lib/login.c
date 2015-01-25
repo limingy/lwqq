@@ -32,6 +32,7 @@
 #include "async.h"
 #include "utility.h"
 #include "internal.h"
+#include "lwjs.h"
 
 /* URL for webqq login */
 #define APPID "1003903"
@@ -182,6 +183,7 @@ static void upcase_string(char *str, int len)
 			str[i]= toupper(str[i]);
 	}
 }
+#if 0
 /**
  * I hacked the javascript file named comm.js, which received from tencent
  * server, and find that fuck tencent has changed encryption algorithm
@@ -252,6 +254,7 @@ static char *lwqq_enc_pwd(const char *pwd, const char *vc, const char *uin)
 	/* OK, seems like every is OK */
 	return s_strdup(buf);
 }
+#endif
 
 /** 
  * Do really login
@@ -266,18 +269,27 @@ static LwqqAsyncEvent* do_login(LwqqClient *lc, const char *md5, LwqqErrorCode *
 	char refer[1024];
 	LwqqHttpRequest *req;
 
+	req = lwqq_http_create_default_request(lc,"https://qq.com", err);
+	char* ptvf = lwqq_http_get_cookie(req, "ptvfsession");
+	lwqq_puts(lwqq_http_get_cookie(req, "ETK"));
+	lwqq_puts(lwqq_http_get_cookie(req, "RK"));
+	lwqq_http_request_free(req);
+
 	snprintf(url, sizeof(url), WEBQQ_LOGIN_HOST"/login?"
 			"u=%s&p=%s&verifycode=%s&"
 			"webqq_type=%d&remember_uin=1&aid=1003903&login2qq=1&"
 			"u1=http%%3A%%2F%%2Fweb.qq.com%%2Floginproxy.html"
 			"%%3Flogin2qq%%3D1%%26webqq_type%%3D10&h=1&ptredirect=0&"
 			"ptlang=2052&daid=164&from_ui=1&pttype=1&dumy=&fp=loginerroralert&"
-			"action=2-10-5837&mibao_css=m_webqq&t=1&g=1&js_type=0&js_ver=10034&login_sig=%s",
-			lc->username, md5, lc->vc->str,lc->stat,lc->login_sig);
+			"action=2-10-5837&mibao_css=m_webqq&t=1&g=1&js_type=0&js_ver=10034&"
+			"login_sig=%s&pt_randsalt=0&pt_vcode_v1=0&pt_verifysession_v1=%s",
+			lc->username, md5, lc->vc->str,lc->stat,lc->login_sig, ptvf);
+	s_free(ptvf);
 
 	req = lwqq_http_create_default_request(lc,url, err);
 	/* Setup http header */
 	req->set_header(req, "Referer", WEBQQ_LOGIN_LONG_REF_URL(refer));
+	lwqq_http_set_option(req, LWQQ_HTTP_VERBOSE, 1L);
 
 	LwqqAsyncEvent* ret = lwqq_async_event_new(NULL);
 	/* Send request */
@@ -648,11 +660,14 @@ static void login_stage_4(LwqqClient* lc,LwqqErrorCode* ec)
 	if(!lwqq_client_valid(lc)) return;
 	if(!lc->vc) return;
 	/* Third: calculate the md5 */
-	char *md5 = lwqq_enc_pwd(lc->password, lc->vc->str, lc->vc->uin);
+	lwqq_js_t* js = lwqq_js_init();
+	lwqq_js_load(js, lc->encryption_js);
+	char * md5Pwd = lwqq_js_encryption(lc->password, "\\", lc->vc->str, 0, js);
+	lwqq_js_close(js);
 
 	/* Last: do real login */
-	LwqqAsyncEvent* ev = do_login(lc, md5, NULL);
-	s_free(md5);
+	LwqqAsyncEvent* ev = do_login(lc, md5Pwd, NULL);
+	s_free(md5Pwd);
 	lwqq_async_add_event_listener(ev,_C_(2p,login_stage_5,ev,ec));
 
 }

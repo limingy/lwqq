@@ -352,6 +352,7 @@ struct LwqqClient {
 	LwqqAsyncQueue ev_queue;
 	/** non data area **/
 	void* data;                     /**< user defined data*/
+	const char* encryption_js;
 	int magic;          /**< 0x4153 **/
 };
 #define lwqq_client_userdata(lc) (lc->data)
