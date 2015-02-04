@@ -38,6 +38,9 @@ char* lwqq_util_hashP(const char* uin,const char* ptwebqq,void*);
 char* lwqq_util_hashQ(const char* uin,const char* ptwebqq,void* _unused);
 size_t lwqq_util_rand(size_t seed, size_t e);
 
+// a new api to replace url_encode
+char* lwqq_util_encode_url(const char* f, char* buf, size_t len);
+
 #define lwqq_group_pretty_name(g) (g->markname?:g->name)
 #define lwqq_buddy_pretty_name(b) (b->markname?:b->nick)
 #define lwqq_override(to,from_alloc) {char* tmp_ = from_alloc;if(tmp_){s_free(to);to=tmp_;}}

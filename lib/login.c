@@ -35,7 +35,6 @@
 #include "lwjs.h"
 
 /* URL for webqq login */
-#define APPID "1003903"
 
 
 static LwqqAsyncEvent* set_online_status(LwqqClient *lc,const char *status);
@@ -100,13 +99,17 @@ static int check_need_verify_back(LwqqHttpRequest* req)
 	 * "Set-Cookie".
 	 */
 	int need_vf;
-	char param2[256];
-	char param3[256];
-	sscanf(req->response,"ptui_checkVC('%d','%[^']','%[^']');",&need_vf,param2,param3);
+	char salt[256];
+	char verifysession[256];
+	char vfcode[8];
+	lwqq_puts(req->response);
+	sscanf(req->response,"ptui_checkVC('%d','%[^']','%[^']','%[^']');",&need_vf,vfcode, salt,verifysession);
 	lc->vc = s_malloc0(sizeof(*lc->vc));
-	lc->vc->uin = s_strdup(param3);
-	lc->vc->str = s_strdup(param2);
+	//lc->vc->uin = s_strdup(param3);
+	lc->vc->str = s_strdup(vfcode);
 	lc->vc->lc  = lc;
+	lwqq_override(lc->session.verifysession, s_strdup(verifysession));
+	lwqq_override(lc->session.salt, s_strdup(salt));// we don't convert it, because it would pass to js direct.
 
 	if (need_vf == 0) {
 		/* We need get the ptvfsession from the header "Set-Cookie" */
@@ -129,11 +132,18 @@ static LwqqAsyncEvent* check_need_verify(LwqqClient *lc,const char* appid)
 
 	srand48(time(NULL));
 	double random = drand48();
-	snprintf(url, sizeof(url), WEBQQ_CHECK_HOST"/check?uin=%s&appid=%s&"
-			"js_ver=10037&js_type=0&%s%s&u1=http%%3A%%2F%%2Fweb2.qq.com%%2Floginproxy.html&r=%.16lf",
-			lc->username, appid,
+	snprintf(url, sizeof(url), WEBQQ_CHECK_HOST"/check?"
+			"pt_tea=1&"
+			"uin=%s&"
+			"appid="APPID"&"
+			"js_ver="JSVER"&"
+			"js_type=0&%s%s&"
+			"u1=%s&"
+			"r=%.16lf",
+			lc->username,
 			lc->login_sig?"login_sig=":"",
 			lc->login_sig?:"",
+			lwqq_util_encode_url("http://w.qq.com/proxy.html", buf, sizeof(buf)),
 			random);
 	req = lwqq_http_create_default_request(lc,url,NULL);
 	req->set_header(req,"Referer",WEBQQ_LOGIN_LONG_REF_URL(buf));
@@ -154,6 +164,7 @@ static int request_captcha_back(LwqqHttpRequest* req,LwqqVerifyCode* code)
 	code->size = req->resp_len;
 	req->response = NULL;
 	lc->args->vf_image = code;
+	lwqq_override(lc->session.verifysession, lwqq_http_get_cookie(req, "verifysession"));
 	vp_do_repeat(lc->events->need_verify, NULL);
 done:
 	lwqq_http_request_free(req);
@@ -164,17 +175,20 @@ static LwqqAsyncEvent* get_verify_image(LwqqClient *lc)
 {
 	LwqqHttpRequest *req = NULL;  
 	char url[512];
-	char chkuin[64];
+	//char chkuin[64];
 	LwqqErrorCode err;
 
-	snprintf(url, sizeof(url), WEBQQ_CAPTCHA_HOST"/getimage?aid=%s&uin=%s", APPID, lc->username);
+	srand48(time(NULL));
+	double random = drand48();
+	snprintf(url, sizeof(url), WEBQQ_CAPTCHA_HOST"/getimage?aid="APPID"&uin=%s&%lf", lc->username, random);
 	req = lwqq_http_create_default_request(lc,url, &err);
 
-	snprintf(chkuin, sizeof(chkuin), "chkuin=%s", lc->username);
-	req->set_header(req, "Cookie", chkuin);
+	//snprintf(chkuin, sizeof(chkuin), "chkuin=%s", lc->username);
+	//req->set_header(req, "Cookie", chkuin);
 	return req->do_request_async(req, lwqq__hasnot_post(),_C_(2p_i,request_captcha_back,req,lc->vc));
 }
 
+#if 0
 static void upcase_string(char *str, int len)
 {
 	int i;
@@ -183,7 +197,6 @@ static void upcase_string(char *str, int len)
 			str[i]= toupper(str[i]);
 	}
 }
-#if 0
 /**
  * I hacked the javascript file named comm.js, which received from tencent
  * server, and find that fuck tencent has changed encryption algorithm
@@ -269,22 +282,43 @@ static LwqqAsyncEvent* do_login(LwqqClient *lc, const char *md5, LwqqErrorCode *
 	char refer[1024];
 	LwqqHttpRequest *req;
 
-	req = lwqq_http_create_default_request(lc,"https://qq.com", err);
-	char* ptvf = lwqq_http_get_cookie(req, "ptvfsession");
-	lwqq_puts(lwqq_http_get_cookie(req, "ETK"));
-	lwqq_puts(lwqq_http_get_cookie(req, "RK"));
-	lwqq_http_request_free(req);
+	if(strcmp(lc->session.verifysession,"")==0){
+		req = lwqq_http_create_default_request(lc,"https://qq.com", err);
+		lwqq_override(lc->session.verifysession, lwqq_http_get_cookie(req, "verifysession"));
+		lwqq_puts(lwqq_http_get_cookie(req, "ETK"));
+		lwqq_puts(lwqq_http_get_cookie(req, "RK"));
+		lwqq_http_request_free(req);
+	}
 
 	snprintf(url, sizeof(url), WEBQQ_LOGIN_HOST"/login?"
 			"u=%s&p=%s&verifycode=%s&"
-			"webqq_type=%d&remember_uin=1&aid=1003903&login2qq=1&"
-			"u1=http%%3A%%2F%%2Fweb.qq.com%%2Floginproxy.html"
-			"%%3Flogin2qq%%3D1%%26webqq_type%%3D10&h=1&ptredirect=0&"
-			"ptlang=2052&daid=164&from_ui=1&pttype=1&dumy=&fp=loginerroralert&"
-			"action=2-10-5837&mibao_css=m_webqq&t=1&g=1&js_type=0&js_ver=10034&"
-			"login_sig=%s&pt_randsalt=0&pt_vcode_v1=0&pt_verifysession_v1=%s",
-			lc->username, md5, lc->vc->str,lc->stat,lc->login_sig, ptvf);
-	s_free(ptvf);
+			"webqq_type=%d&"
+			"remember_uin=1&"
+			"aid="APPID"&"
+			"login2qq=1&"
+			"u1=%s&"
+			"h=1&"
+			"ptredirect=0&"
+			"ptlang=2052"
+			"&daid=164&"
+			"from_ui=1"
+			"&pttype=1&"
+			"dumy=&"
+			"fp=loginerroralert&"
+			//"action=0-31-82782&"
+			"mibao_css=m_webqq&"
+			"t=1&"
+			"g=1&"
+			"js_type=0&"
+			"js_ver="JSVER"&"
+			"login_sig=%s&"
+			"pt_randsalt=0"
+			"&pt_vcode_v1=0&"
+			"pt_verifysession_v1=%s",
+			lc->username, md5, lc->vc->str,lc->stat,
+			lwqq_util_encode_url("http://w.qq.com/proxy.html?login2qq=1&webqq_type=10",
+					refer, sizeof(refer)),
+			lc->login_sig, lc->session.verifysession);
 
 	req = lwqq_http_create_default_request(lc,url, err);
 	/* Setup http header */
@@ -662,7 +696,7 @@ static void login_stage_4(LwqqClient* lc,LwqqErrorCode* ec)
 	/* Third: calculate the md5 */
 	lwqq_js_t* js = lwqq_js_init();
 	lwqq_js_load(js, lc->encryption_js);
-	char * md5Pwd = lwqq_js_encryption(lc->password, "\\", lc->vc->str, 0, js);
+	char * md5Pwd = lwqq_js_encryption(lc->password, lc->session.salt, lc->vc->str, 0, js);
 	lwqq_js_close(js);
 
 	/* Last: do real login */

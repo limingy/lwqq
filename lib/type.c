@@ -161,7 +161,7 @@ void lwqq_vc_free(LwqqVerifyCode *vc)
 {
 	if (vc) {
 		s_free(vc->str);
-		s_free(vc->uin);
+		//s_free(vc->uin);
 		s_free(vc->data);
 		s_free(vc);
 	}
@@ -214,6 +214,8 @@ void lwqq_client_free(LwqqClient *client)
 	s_free(client->new_ptwebqq);
 	s_free(client->login_sig);
 	s_free(client->session.ptwebqq);
+	s_free(client->session.salt);
+	s_free(client->session.verifysession);
 	lwqq_buddy_free(client->myself);
 
 	//remove all extensions

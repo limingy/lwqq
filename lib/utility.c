@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <ctype.h>
 
 #include "utility.h"
 #include "smemory.h"
@@ -268,4 +269,40 @@ const char* ds_itos(int n)
 	return buffer;
 }
 
+/* Converts an integer value to its hex character*/
+static char to_hex(char code)
+{
+	static char hex[] = "0123456789ABCDEF";
+	return hex[code & 15];
+}
+
+LWQQ_EXPORT
+char* lwqq_util_encode_url(const char* str, char* buf, size_t len)
+{
+	if (!str) return NULL;
+
+	const char *pstr = str;
+	char *pbuf = buf;
+	while (*pstr) {
+		if(isalnum(*pstr)) 
+			*pbuf++ = *pstr;
+		else
+			switch(*pstr){
+				case '-':
+				case '_':
+				case '.':
+				case '~':
+				case '&':
+				case '=':
+					*pbuf++ = *pstr;
+					break;
+				default:
+					*pbuf++ = '%', *pbuf++ = to_hex(*pstr >> 4), *pbuf++ = to_hex(*pstr & 15);
+
+			}
+		pstr++;
+	}
+	*pbuf = '\0';
+	return buf;
+}
 // vim: ts=3 sw=3 sts=3 noet

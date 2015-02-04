@@ -34,7 +34,7 @@ void urlencode(char* str,int beg);
  * @return A url-decoded version of str
  */
 char *url_decode(char *str);
-char *url_whole_encode(char *str);
+char *url_whole_encode(char *str); // XXX Should discard
 
 //char* to_gbk(const char* utf8);
 

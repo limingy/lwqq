@@ -296,7 +296,7 @@ Discu: (with lwdb) the only one and stable key reference
 
 typedef struct LwqqVerifyCode {
 	char *str; // input
-	char *uin;
+	//char *uin;
 	//{image
 	char *data;
 	size_t size;
@@ -329,6 +329,8 @@ struct LwqqClient {
 	char *new_ptwebqq;              /**< this only used when relogin */
 	struct {
 		char* ptwebqq;
+		char* verifysession;
+		char* salt;
 	}session;
 
 	LwqqBuddy *myself;          /**< Myself */

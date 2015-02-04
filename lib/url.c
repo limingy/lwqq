@@ -118,23 +118,5 @@ char *url_decode(char *str)
 	*pbuf = '\0';
 	return buf;
 }
-/*
-	char* to_gbk(char* utf8)
-	{
-	char buf[512];
-	iconv_t cd = iconv_open("gbk","utf-8");
-
-	char* inbuf = utf8;
-	size_t inlen = strlen(utf8);
-	char* outbuf = buf;
-	size_t outlen = sizeof(buf);
-	iconv(cd,&inbuf,&inlen,&outbuf,&outlen);
-	iconv_close(cd);
-	if(inlen!=0) return NULL;
- *outbuf = '\0';
- return s_strdup(buf);
- }
-
-*/
 
 // vim: ts=3 sw=3 sts=3 noet
