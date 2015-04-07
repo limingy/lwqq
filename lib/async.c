@@ -39,9 +39,10 @@ typedef struct LwqqAsyncEvset_ {
 	LwqqAsyncEvset parent;
 	pthread_mutex_t lock;
 	pthread_cond_t cond;
-	int cond_waiting;
-	int ref_count;
+	unsigned ref_count;
 	LwqqCommand cmd;
+	unsigned char cond_waiting;
+	unsigned char ready;
 }LwqqAsyncEvset_;
 typedef struct LwqqAsyncEvent_{
 	LwqqAsyncEvent parent;
@@ -150,7 +151,7 @@ void lwqq_async_event_finish(LwqqAsyncEvent* event)
 		//this store evset err count.
 		if(event->result != LWQQ_EC_OK)
 			evset_->parent.err_count ++;
-		if(evset_->ref_count==0){
+		if(evset_->ready && evset_->ref_count==0){
 			vp_do(evset_->cmd,NULL);
 			if(evset_->cond_waiting)
 				pthread_cond_signal(&evset_->cond);
@@ -242,6 +243,7 @@ void lwqq_async_add_evset_listener(LwqqAsyncEvset* evset,LwqqCommand cmd)
 		set_->cmd = cmd;
 	else
 		vp_link(&set_->cmd,&cmd);
+	set_->ready = 1;
 	if(set_->ref_count == 0){
 		lwqq_async_evset_free(evset);
 		vp_do(cmd, NULL);
